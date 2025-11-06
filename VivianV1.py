@@ -15,8 +15,8 @@ red = 0xFF0000
 purple = 0xFF00FF
 
 # URLs to fetch from
-APPID = "daeb081895c6e7d840f949d2ceb8a8aa" #get api key here: https://openweathermap.org/api
-JSON_DATA_URL = f"https://api.openweathermap.org/data/2.5/weather?lat=37.7195&lon=-122.4411&units=imperial&appid=4fcbe1c2ca0409ee8f4127d8726775ec"
+APPID = "API" #get api key here: https://openweathermap.org/api
+JSON_DATA_URL = f"https://api.openweathermap.org/data/2.5/weather?lat=37.7195&lon=-122.4411&units=imperial&appid=API"
 
 # Get wifi details and more from a secrets.py file
 try:
