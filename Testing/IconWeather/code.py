@@ -7,7 +7,7 @@ from adafruit_display_text import bitmap_label
 LAT = 37.7195
 LON = -122.4411
 UNITS = "imperial"              # or "metric"
-APPID = "4fcbe1c2ca0409ee8f4127d8726775ec"   # <-- put your key here
+APPID = "API"   # <-- put your key here
 ICON_DIR = "/icons"
 POLL_SECONDS = 60
 
