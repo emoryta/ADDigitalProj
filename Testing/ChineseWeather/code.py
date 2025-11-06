@@ -16,7 +16,6 @@ CITY_MAP = {
     "Daly City": "戴利城",
 }
 
-# Map common OpenWeather "description" (lowercase) to Chinese
 COND_MAP = {
     "clear sky": "晴",
     "few clouds": "多云",
