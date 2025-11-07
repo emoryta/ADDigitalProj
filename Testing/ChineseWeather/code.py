@@ -6,7 +6,7 @@ from adafruit_display_text import bitmap_label
 
 # ----- CONFIG -----
 LAT, LON = 47.2529, -122.4443
-UNITS = "imperial"  # or "metric"
+UNITS = "imperial"
 FONT_PATH = "/fonts/cjk16.bdf"
 TEXT_COLOR = 0xFF0000
 UPDATE_SECS = 30
@@ -74,7 +74,6 @@ def cn_or_en_cond(desc_en: str, have_ascii: bool = True) -> str:
     if not desc_en:
         return ""
     cn = COND_MAP.get(desc_en.lower().strip())
-    # If we have a Chinese mapping, use it; else fall back to English (ASCII is in your subset now)
     return cn if cn else desc_en
 
 # ----- SECRETS -----
@@ -101,7 +100,7 @@ requests = adafruit_requests.Session(pool, ssl.create_default_context())
 # ----- FONT/LABEL -----
 font = bitmap_font.load_font(FONT_PATH)
 
-# Make sure your BDF includes these chars (ASCII + degree + Chinese you use)
+# *BDF MUST HAVE THESE CHARS*
 needed = (
     "现在在是温度度华氏摄氏天气晴多云小雨中雨大雨阵雨雾阴雷雪霾扬尘龙卷风雨夹雪阵风旧金山戴利城"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -111,7 +110,7 @@ font.load_glyphs([ord(c) for c in needed])
 
 label = bitmap_label.Label(font, text="", scale=1, color=TEXT_COLOR)
 label.x = 10
-label.y = 20  # a bit higher to fit 3 lines
+label.y = 20
 board.DISPLAY.root_group = label
 
 def deg(temp):
@@ -121,7 +120,6 @@ def deg(temp):
 def make_text(temp, city_en, cond_en):
     city = cn_or_en_city(city_en)
     cond = cn_or_en_cond(cond_en)
-    # 3 lines: city, temperature, condition
     return f"现在{city}是\n{deg(temp)}\n{cond}"
 
 while True:
@@ -136,6 +134,5 @@ while True:
             cond_en = w[0].get("description", "") or w[0].get("main", "")
         label.text = make_text(temp, city, cond_en)
     except Exception as e:
-        # Keep error ASCII so it always renders
         label.text = f"Error:\n{e}"
     time.sleep(UPDATE_SECS)

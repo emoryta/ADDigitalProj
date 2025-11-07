@@ -1,4 +1,3 @@
-# code.py — CircuitPython 9.x, responsive layout for small TFT
 import time, ssl, wifi, socketpool, adafruit_requests
 import board, displayio, terminalio
 from adafruit_display_text import bitmap_label
@@ -6,8 +5,8 @@ from adafruit_display_text import bitmap_label
 # ---------------- CONFIG ----------------
 LAT = 37.7195
 LON = -122.4411
-UNITS = "imperial"              # or "metric"
-APPID = "API"   # <-- put your key here
+UNITS = "imperial"
+APPID = "API" #API KEY HERE
 ICON_DIR = "/icons"
 POLL_SECONDS = 60
 
@@ -31,32 +30,28 @@ root = displayio.Group()
 display.root_group = root
 
 MARGIN = 6
-HEADER_H = 20  # slimmer header for small screens
+HEADER_H = 20
 
 def rect(x, y, w, h, color):
     bmp = displayio.Bitmap(w, h, 1)
     pal = displayio.Palette(1); pal[0] = color
     return displayio.TileGrid(bmp, pixel_shader=pal, x=x, y=y)
 
-# Background and header
 root.append(rect(0, 0, W, H, BG))
 root.append(rect(0, 0, W, HEADER_H, CARD))
 
-# Title (city) and updated stamp
 title = bitmap_label.Label(terminalio.FONT, text="Weather", color=TEXT_MAIN, scale=1,
                            anchor_point=(0, 0.5), anchored_position=(MARGIN, HEADER_H//2))
 updated = bitmap_label.Label(terminalio.FONT, text="", color=TEXT_DIM, scale=1,
                              anchor_point=(1, 0.5), anchored_position=(W - MARGIN, HEADER_H//2))
 root.append(title); root.append(updated)
 
-# Right column text nodes (temp big; bottom: condition + feels)
 temp_lbl = bitmap_label.Label(terminalio.FONT, text="--", color=TEXT_MAIN, scale=3,
                               anchor_point=(1, 0), anchored_position=(W - MARGIN, HEADER_H + MARGIN))
 cond_lbl = bitmap_label.Label(terminalio.FONT, text="--", color=TEXT_DIM, scale=1,
                               anchor_point=(0.5, 1), anchored_position=(W/2, H - MARGIN))
 root.append(temp_lbl); root.append(cond_lbl)
 
-# Icon holder (left column)
 icon_tg = None
 def remove_icon():
     global icon_tg
@@ -65,47 +60,35 @@ def remove_icon():
     icon_tg = None
 
 def load_scaled_icon(name):
-    """
-    Load BMP and auto-scale it to fit the left column area.
-    Left column target area: from HEADER_H+MARGIN down to cond_lbl top - MARGIN
-    Width: about 45% of screen width.
-    """
     global icon_tg
     try:
         bmp = displayio.OnDiskBitmap(f"{ICON_DIR}/{name}")
     except Exception as e:
         print("Icon load failed:", e); return
 
-    # Compute target box
     top = HEADER_H + MARGIN
-    bottom = int(cond_lbl.anchored_position[1]) - MARGIN  # just above the bottom line
+    bottom = int(cond_lbl.anchored_position[1]) - MARGIN
     avail_h = max(8, bottom - top)
     avail_w = max(8, int(W * 0.45) - 2*MARGIN)
 
-    # Figure scale (integer)
     iw, ih = bmp.width, bmp.height
-    # Avoid divide-by-zero
     if iw < 1 or ih < 1:
         return
     sx = max(1, min(avail_w // iw, avail_h // ih))
-    # Ensure at least 1, and cap so it stays visible
     sx = max(1, min(sx, 4))
 
-    # Place icon centered in the left box
     box_w = iw * sx
     box_h = ih * sx
     x = MARGIN + (avail_w - box_w) // 2
     y = top + (avail_h - box_h) // 2
 
     icon_tg = displayio.TileGrid(bmp, pixel_shader=bmp.pixel_shader, x=int(x), y=int(y))
-    # TileGrid 'scale' exists on CircuitPython; set it if present
     try:
         icon_tg.scale = sx
     except Exception:
-        # Fallback: if scale not supported, just place 1:1 (export smaller icons if needed)
         pass
 
-    root.insert(1, icon_tg)  # above bg, below text
+    root.insert(1, icon_tg)
 
 def icon_for(code, tag):
     if code == 781: return "tornado.bmp"
@@ -149,15 +132,9 @@ def fetch_weather():
         return None
 
 def autosize_temp():
-    """
-    Choose a temp scale that fits the right column width.
-    terminalio width ~6 px per char at scale=1.
-    """
-    # Available width for temp: right column from mid to right margin
     right_col_left = int(W * 0.52)
     avail = max(30, (W - MARGIN) - right_col_left)
     txt = temp_lbl.text if temp_lbl.text else "88F"
-    # rough char width in px for terminalio
     per_char = 6
     for s in (4, 3, 2, 1):
         if len(txt) * per_char * s <= avail:
@@ -177,16 +154,14 @@ def update_ui(data):
     else:
         code, desc, tag = 800, "Clear", "01d"
 
-    # Right column: text
     title.text = name
     temp_lbl.text = t_ascii(main.get("temp"))
     autosize_temp()
     feels = main.get("feels_like")
     cond_text = desc + ("" if feels is None else " · Feels " + t_ascii(feels))
-    cond_lbl.text = cond_text[:40]  # truncate if super long
+    cond_lbl.text = cond_text[:40]
     updated.text = "Updated"
 
-    # Left column: icon
     remove_icon()
     load_scaled_icon(icon_for(code, tag))
 
