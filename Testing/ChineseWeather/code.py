@@ -120,7 +120,7 @@ def deg(temp):
 def make_text(temp, city_en, cond_en):
     city = cn_or_en_city(city_en)
     cond = cn_or_en_cond(cond_en)
-    return f"现在{city}是\n{deg(temp)}\n{cond}"
+    return f"现在{city}是{deg(temp)}\n{cond}"
 
 while True:
     try:
