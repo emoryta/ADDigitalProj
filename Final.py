@@ -1,9 +1,3 @@
-# Feather M4 Express + PDM mic + 2x NeoPixel strips + button mode switch
-# Mic: PDM data on D12, clock on TX (common Feather M4 PDM wiring)
-# NeoPixels: 5 on D5 (left side), 5 on D6 (right side)
-# Arrangement: upside-down U, each strip starts at top-center and goes downward
-# Button: momentary on D9 to GND (uses internal pull-up)
-
 import time
 import math
 import array
@@ -17,9 +11,9 @@ from digitalio import DigitalInOut, Pull
 from adafruit_debouncer import Debouncer
 
 # -------------------------
-# User toggles / constants
+# Toggles / Constants
 # -------------------------
-DEBUG = True          # Toggle console output here
+DEBUG = True
 FPS = 60              # Main loop rate target (approx)
 BRIGHTNESS = 0.35     # Global brightness cap (safer on power)
 AUTO_WRITE = False
@@ -30,7 +24,6 @@ N_PER_SIDE = 5
 
 BUTTON_PIN = board.D9
 
-# PDM mic pins (Feather M4 Express common example)
 MIC_CLOCK = board.TX
 MIC_DATA = board.D12
 SAMPLE_RATE = 16000
@@ -40,9 +33,9 @@ SAMPLES = 320
 ATTACK = 0.55   # faster rise = more reactive
 RELEASE = 0.12  # faster fall = more motion
 
-# --- Audio sensitivity knobs ---
-MIC_GAIN = 10.0   # MAIN SENSITIVITY KNOB (try 4–10)
-ENV_MAX = 0.18   # "full-scale" envelope for normalization (try 0.15–0.35)
+# Audio Sensitivity
+MIC_GAIN = 21.0
+ENV_MAX = 0.15   # envelope for normalization
 
 # -------------------------
 # Hardware setup
@@ -61,7 +54,6 @@ samples = array.array("H", [0] * SAMPLES)
 # Helpers
 # -------------------------
 def dbg(*args):
-    # Keep debug output short and constant-ish; no accumulation.
     if DEBUG:
         print(*args)
 
@@ -88,43 +80,11 @@ def normalized_rms_u16(buf):
     return math.sqrt(acc / len(buf)) / 65535.0
 
 def apply_gamma(color, gamma=2.2):
-    # Perceptual brightness correction (keeps reds from feeling harsh)
     r, g, b = color
     r = int(((r / 255.0) ** gamma) * 255.0 + 0.5)
     g = int(((g / 255.0) ** gamma) * 255.0 + 0.5)
     b = int(((b / 255.0) ** gamma) * 255.0 + 0.5)
     return (r, g, b)
-
-def rainbow_soft_hot(h, v):
-    """
-    h: 0..1 hue
-    v: 0..1 base brightness
-    Softens reds/oranges so they don't look stark.
-    """
-    h = h % 1.0
-
-    # Base rainbow: slightly less than full saturation already
-    s = 0.90
-
-    # "Hot" region around red/orange (near 0.0 and 1.0, and around ~0.08)
-    # We'll reduce saturation and value there.
-    # Distance to red wrapping around:
-    d_red = min(abs(h - 0.0), abs(h - 1.0))
-    # Also treat orange as hot:
-    d_orange = abs(h - 0.08)
-
-    hot = 0.0
-    if d_red < 0.10:
-        hot = max(hot, (0.10 - d_red) / 0.10)     # 0..1
-    if d_orange < 0.08:
-        hot = max(hot, (0.08 - d_orange) / 0.08)  # 0..1
-
-    # Soften: reduce saturation a lot, value a bit, in hot region
-    s = s * (1.0 - 0.45 * hot)     # up to -45% sat near red/orange
-    v2 = v * (1.0 - 0.25 * hot)    # up to -25% brightness near red/orange
-
-    c = hsv_to_rgb(h, s, v2)
-    return apply_gamma(c, gamma=2.0)
 
 def hsv_to_rgb(h, s, v):
     h = h % 1.0
@@ -149,6 +109,26 @@ def hsv_to_rgb(h, s, v):
         r, g, b = v, p, q
 
     return (int(r * 255), int(g * 255), int(b * 255))
+
+def rainbow_soft_hot(h, v):
+    h = h % 1.0
+
+    s = 0.90
+
+    d_red = min(abs(h - 0.0), abs(h - 1.0))
+    d_orange = abs(h - 0.08)
+
+    hot = 0.0
+    if d_red < 0.10:
+        hot = max(hot, (0.10 - d_red) / 0.10)
+    if d_orange < 0.08:
+        hot = max(hot, (0.08 - d_orange) / 0.08)
+
+    s = s * (1.0 - 0.45 * hot)
+    v2 = v * (1.0 - 0.25 * hot)
+
+    c = hsv_to_rgb(h, s, v2)
+    return apply_gamma(c, gamma=2.0)
 
 def fill_all(color):
     pixels_left.fill(color)
@@ -179,7 +159,6 @@ def clear_u():
         pixels_right[i] = (0, 0, 0)
 
 def draw_bar(level, on_color=(80, 160, 255), off_color=(0, 0, 0)):
-    # Level is 0..N_PER_SIDE, lights from top-center downward on both sides.
     for i in range(N_PER_SIDE):
         c = on_color if i < level else off_color
         pixels_left[i] = c
@@ -202,6 +181,7 @@ MODE_RAINBOW_BREATHE = 2
 MODE_SOUND_BAR = 3
 MODE_SOUND_COLOR = 4
 MODE_SOUND_SPARKLE = 5
+MODE_RAINBOW_FLOW = 6  # NEW
 
 MODE_NAMES = (
     "OFF",
@@ -210,11 +190,11 @@ MODE_NAMES = (
     "SOUND_BAR",
     "SOUND_COLOR",
     "SOUND_SPARKLE",
+    "RAINBOW_FLOW",      # NEW
 )
 
 mode = MODE_SOUND_BAR
 
-# Pastel red (tweak)
 PASTEL_RED = (255, 90, 110)
 
 # Sound envelope state
@@ -223,6 +203,7 @@ env = 0.0
 # Animation state
 t0 = time.monotonic()
 hue_base = 0.0
+flow_phase = 0.0
 
 dbg("Boot. Starting mode:", MODE_NAMES[mode])
 
@@ -281,13 +262,30 @@ while True:
             set_u_index(i, c)
         show()
 
+    elif mode == MODE_RAINBOW_FLOW:
+        # Speed
+        flow_phase = (flow_phase + dt * 0.25) % 1.0  # cycles/second (increase for faster)
+
+        # Brightness knob:
+        v = 0.55  # keep this moderate so it's not harsh
+
+        total = 2 * N_PER_SIDE
+        clear_u()
+
+        # Each pixel has a hue offset; phase pushes the pattern forward around the U.
+        for i in range(total):
+            # Move forward along the U: increasing phase makes the whole rainbow advance.
+            h = (flow_phase + (i / total)) % 1.0
+            c = rainbow_soft_hot(h, v)
+            set_u_index(i, c)
+
+        show()
+
     elif mode == MODE_SOUND_BAR:
-        # Level is directly based on normalized envelope (more sensitive)
         level = int(env_n * N_PER_SIDE + 0.5)
         if level > N_PER_SIDE:
             level = N_PER_SIDE
 
-        # Color shifts as it gets louder
         c_low = (30, 200, 120)
         c_high = (255, 80, 30)
         t = level / float(N_PER_SIDE) if N_PER_SIDE else 0.0
@@ -297,24 +295,21 @@ while True:
         show()
 
     elif mode == MODE_SOUND_COLOR:
-        # Hue changes with loudness; brightness also scales
         loud = env_n
-        hue = lerp(0.70, 0.02, loud)    # purple/blue -> red
-        val = 0.25 + 0.75 * loud        # never fully dark
+        hue = lerp(0.70, 0.02, loud)
+        val = 0.25 + 0.75 * loud
         c = hsv_to_rgb(hue, 1.0, val)
 
         fill_all(c)
         show()
 
     elif mode == MODE_SOUND_SPARKLE:
-        # Base color + sparkles that increase with loudness
         loud = env_n
-        base = hsv_to_rgb(0.58, 1.0, 0.18 + 0.20 * loud)  # teal base
-        sparkle = hsv_to_rgb(0.10, 0.3, 1.0)              # warm pop
+        base = hsv_to_rgb(0.58, 1.0, 0.18 + 0.20 * loud)
+        sparkle = hsv_to_rgb(0.10, 0.3, 1.0)
 
         fill_all(base)
 
-        # Up to 6 sparkles
         sparks = int(loud * 6.0 + 0.2)
         total = 2 * N_PER_SIDE
         for _ in range(sparks):
