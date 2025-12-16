@@ -1,8 +1,6 @@
-# Feather M4 Express + PDM mic + 2x NeoPixel strips + button mode switch
-# Mic: PDM data on D12, clock on TX (common Feather M4 PDM wiring)
+# Mic: PDM data on D12, clock on TX
 # NeoPixels: 5 on D5 (left side), 5 on D6 (right side)
-# Arrangement: upside-down U, each strip starts at top-center and goes downward
-# Button: momentary on D9 to GND (uses internal pull-up)
+# Button: momentary on D9 to GND
 
 import time
 import math
@@ -17,11 +15,11 @@ from digitalio import DigitalInOut, Pull
 from adafruit_debouncer import Debouncer
 
 # -------------------------
-# User toggles / constants
+# Toggles / constants
 # -------------------------
 DEBUG = True          # Toggle console output here
 FPS = 60              # Main loop rate target (approx)
-BRIGHTNESS = 0.35     # Global brightness cap (safer on power)
+BRIGHTNESS = 0.35
 AUTO_WRITE = False
 
 PIN_LEFT = board.D5
@@ -30,7 +28,6 @@ N_PER_SIDE = 5
 
 BUTTON_PIN = board.D9
 
-# PDM mic pins (Feather M4 Express common example)
 MIC_CLOCK = board.TX
 MIC_DATA = board.D12
 SAMPLE_RATE = 16000
@@ -42,7 +39,7 @@ RELEASE = 0.12  # faster fall = more motion
 
 # --- Audio sensitivity knobs ---
 MIC_GAIN = 21.0  # baseline mic gain; auto-gain rides on top of this
-ENV_MAX = 0.15   # "full-scale" envelope for normalization (try 0.15–0.35)
+ENV_MAX = 0.15   # "full-scale" envelope for normalization
 
 # Adaptive loudness (automatic sensitivity) and transient tracking
 AUTO_GAIN = True
@@ -74,7 +71,6 @@ samples = array.array("H", [0] * SAMPLES)
 # Helpers
 # -------------------------
 def dbg(*args):
-    # Keep debug output short and constant-ish; no accumulation.
     if DEBUG:
         print(*args)
 
@@ -108,7 +104,6 @@ def normalized_rms_u16(buf):
     return math.sqrt(acc / len(buf)) / 65535.0
 
 def apply_gamma(color, gamma=2.2):
-    # Perceptual brightness correction (keeps reds from feeling harsh)
     r, g, b = color
     r = int(((r / 255.0) ** gamma) * 255.0 + 0.5)
     g = int(((g / 255.0) ** gamma) * 255.0 + 0.5)
@@ -216,8 +211,8 @@ MODE_RAINBOW_BREATHE = 2
 MODE_SOUND_BAR = 3
 MODE_SOUND_COLOR = 4
 MODE_SOUND_SPARKLE = 5
-MODE_RAINBOW_FLOW = 6  # NEW
-MODE_SOUND_PULSE = 7    # NEW: whole strip pulses for reflections
+MODE_RAINBOW_FLOW = 6
+MODE_SOUND_PULSE = 7
 
 MODE_NAMES = (
     "OFF",
@@ -226,13 +221,12 @@ MODE_NAMES = (
     "SOUND_BAR",
     "SOUND_COLOR",
     "SOUND_SPARKLE",
-    "RAINBOW_FLOW",      # NEW
+    "RAINBOW_FLOW",
     "SOUND_PULSE",
 )
 
 mode = MODE_SOUND_BAR
 
-# Pastel red (tweak)
 PASTEL_RED = (255, 90, 110)
 
 # Sound envelope state
@@ -244,7 +238,7 @@ bar_peak = 0.0
 # Animation state
 t0 = time.monotonic()
 hue_base = 0.0
-flow_phase = 0.0  # NEW: 0..1 phase for the flowing rainbow
+flow_phase = 0.0
 
 dbg("Boot. Starting mode:", MODE_NAMES[mode])
 
@@ -321,8 +315,6 @@ while True:
         show()
 
     elif mode == MODE_RAINBOW_FLOW:
-        # NEW: rainbow "chase" that flows around the full U loop
-        # Speed follows the beat/energy so it feels alive.
         flow_speed = 0.18 + 0.55 * env_n + 0.75 * punch
         flow_phase = (flow_phase + dt * flow_speed) % 1.0
 
